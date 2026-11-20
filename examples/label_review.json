@@ -1,0 +1,14 @@
+{
+  "station": "WB01",
+  "day": "2026-10-08",
+  "limit": 10,
+  "policy_source": "LIMIT-8",
+  "batch_id": "EARLY",
+  "rows": [["A", 19], ["B", 14], ["D", 10]],
+  "swap": {"id": "TAG-SWAP", "reason": "校对双槽标签", "pairs": [["A", "B"], ["B", "A"]]},
+  "reading_fix": {"id": "VALUE-1", "key": "B", "reading": 21, "reason": "复查仪表单"},
+  "move_out": {"id": "TAG-OUT", "reason": "改挂临时标签", "pairs": [["B", "C"]]},
+  "move_back": {"id": "TAG-BACK", "reason": "恢复核定标签", "pairs": [["C", "B"]]},
+  "occupied": {"id": "TAG-OCCUPIED", "reason": "待复核标签", "pairs": [["B", "D"]]},
+  "reintake": {"batch_id": "NEXT", "rows": [["B", 22]]}
+}

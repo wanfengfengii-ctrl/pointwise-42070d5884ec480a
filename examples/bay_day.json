@@ -1,0 +1,14 @@
+{
+  "station": "WB01",
+  "day": "2026-10-08",
+  "limit": 10,
+  "policy_source": "P-17",
+  "morning": {"batch_id": "EARLY", "rows": [["C", 15], ["M", null], ["A", 12]]},
+  "evening": {"batch_id": "LATE", "rows": [["B", 10], ["D", 13]]},
+  "before_issue": [
+    {"id": "COR-A", "key": "A", "action": "replace", "reading": 15, "reason": "Gauge slip A-17"},
+    {"id": "COR-D", "key": "D", "action": "withdraw", "reason": "Probe obstruction D-1"}
+  ],
+  "after_issue": {"id": "COR-L", "key": "A", "action": "replace", "reading": 9, "reason": "Later gauge audit"},
+  "report_id": "R1"
+}
