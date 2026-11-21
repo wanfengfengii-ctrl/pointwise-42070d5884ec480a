@@ -72,6 +72,7 @@ SCHEMA = (
         batch_id TEXT NOT NULL,
         slot INTEGER NOT NULL,
         correction_id TEXT,
+        label_id TEXT,
         PRIMARY KEY (station, day, observation_key),
         FOREIGN KEY (batch_id, slot) REFERENCES raw_slots(batch_id, position)
     )''',
@@ -84,6 +85,7 @@ SCHEMA = (
         batch_id TEXT NOT NULL,
         slot INTEGER NOT NULL,
         old_correction_id TEXT,
+        old_label_id TEXT,
         action TEXT NOT NULL CHECK (action IN ('replace', 'withdraw')),
         reason TEXT NOT NULL,
         replacement TEXT,
@@ -109,9 +111,30 @@ SCHEMA = (
         batch_id TEXT NOT NULL,
         slot INTEGER NOT NULL,
         correction_id TEXT,
+        label_id TEXT,
         PRIMARY KEY (report_id, position),
         UNIQUE (report_id, observation_key),
         FOREIGN KEY (batch_id, slot) REFERENCES raw_slots(batch_id, position)
+    ) WITHOUT ROWID''',
+    '''CREATE TABLE IF NOT EXISTS label_requests (
+        request_id TEXT PRIMARY KEY NOT NULL,
+        station TEXT NOT NULL,
+        day TEXT NOT NULL,
+        reason TEXT NOT NULL,
+        item_count INTEGER NOT NULL CHECK (item_count > 0)
+    ) WITHOUT ROWID''',
+    '''CREATE TABLE IF NOT EXISTS label_changes (
+        request_id TEXT NOT NULL REFERENCES label_requests(request_id),
+        position INTEGER NOT NULL CHECK (position >= 0),
+        old_key TEXT NOT NULL,
+        old_reading TEXT,
+        old_batch_id TEXT NOT NULL,
+        old_slot INTEGER NOT NULL,
+        old_correction_id TEXT,
+        old_label_id TEXT,
+        new_key TEXT NOT NULL,
+        PRIMARY KEY (request_id, position),
+        FOREIGN KEY (old_batch_id, old_slot) REFERENCES raw_slots(batch_id, position)
     ) WITHOUT ROWID''',
     '''CREATE TABLE IF NOT EXISTS report_receipts (
         report_id TEXT PRIMARY KEY NOT NULL REFERENCES reports(report_id),

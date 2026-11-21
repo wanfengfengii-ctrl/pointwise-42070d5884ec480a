@@ -30,6 +30,8 @@ def validate_old_image(image):
         raise ValueError('old source slot must be a nonnegative integer')
     if image.source.correction_id is not None:
         require_text(image.source.correction_id, 'old source correction id')
+    if image.source.label_id is not None:
+        require_text(image.source.label_id, 'old source label id')
 
 
 def require_matching_old_image(current, image):

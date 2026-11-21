@@ -22,14 +22,17 @@ python3 -B demo.py
 | `limits.day_policy.register` | `db, station, day, limit, source`。返回首次冻结的 `DayPolicy`。同站日同上限复用首次来源，异值拒绝。 |
 | `batches.intake.ingest` | `db, station, day, batch_id, rows`。`rows` 是由 `(key, reading)` 组成的有序序列。接纳回执列出原槽引用。同批号同站日同原序复领，异件或任一键冲突整批拒绝。 |
 | `facts.corrections.correct_fact` | `db, request`。使用 `CorrectionRequest(correction_id, old, action, reason, reading=None)`。`OldImage` 包含站、日、键、读数和完整 `FactSource`，也可用 `OldImage.from_fact(...)` 构造。`replace` 支持整数或缺测，`withdraw` 要求 `reading=None`。首执含更新后的事实，撤销时该字段为 `None`。 |
+| `facts.corrections.relabel_facts` | `db, request_id, reason, changes`。`changes` 是按申请项顺序排列的 `(OldImage, new_key)` 非空序列，整单限同一站日。返回含 `request_id`、`reason`、`after` 的 `LabelReceipt`，`after` 与申请项同序，保留读数与原槽并带上新标签身份。允许互换与闭环，目标键不得占用单外现行键。 |
 | `quality.evaluate.preview` | `db, station, day`。返回口径、异常明细和三类覆盖统计。 |
 | `delivery.issue.publish` | `db, station, day, report_id`。返回 `IssuedReport`，包含固定报表和定稿首执。同号同站日复领原成果，异绑定拒绝。 |
 | `delivery.pages.read_page` | `db, report_id, start, length`。`start` 为零基绝对行位，`length` 为非负整数。零长和越尾均返回空切片及原总行数。 |
-| `delivery.source_lookup.read_source` | `db, report_id, position`。从固定行返回原槽和定稿时采用的勘误编号及依据。 |
+| `delivery.source_lookup.read_source` | `db, report_id, position`。从固定行返回原槽、定稿时采用的读数勘误编号及依据，以及从原槽到定稿标签身份的有序 `(request_id, reason)` 标签沿革（`label_changes`）。 |
 
 调用方可用 `facts.repository.load_current_fact(db, station, day, key)` 取得勘误旧像，用 `batches.repository.load_raw_slot(db, batch_id, position)` 查原槽。站日使用 `YYYY-MM-DD`。标识和依据为非空白文本，按原文比较。读数与上限是精确整数毫米，布尔值、浮点数及文本数值拒绝，`None` 表示缺测。上限和读数以十六进制整数文本无损存储，缺测存为空值。计算时恢复 Python 整数，支持超出 SQLite 整数范围的值及差值。
 
 缺测占用原槽并单独计数。读数等于上限计未超限，严格大于上限才有异常行。异常行按超限量降序和观测键升序排列。已登记空日的试算为空且三类计数均为零。撤销移除现行事实并保留原件和首执，合法新批可接纳同一个键。定稿从一致事实像重新试算并校核，再把结果和首执一起提交。
+
+标签勘误按申请号、理由和完整有序项判重，等同请求返回首次结果，改值、换标或撤销不影响首执。同号异请求、旧像失效和单外占位使用 `storage.Conflict`。标签申请号与原读数勘误号、报告号各自编号。
 
 非法参数使用 `ValueError`，异绑定、撞键及旧像不符使用 `storage.Conflict`。未知站点、站日或清单使用 `storage.UnknownRecord`。固定查源行位越界使用 `IndexError`，结果校核或来源完整性失败使用 `storage.IntegrityViolation`。SQLite 失败保留原异常，跨组件写入一同回滚。
 

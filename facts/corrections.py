@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 
 from batches.rows import validate_reading
+from facts.labels import LabelReceipt, relabel_facts
 from facts.old_image import OldImage, require_matching_old_image, validate_old_image
 from facts.repository import (
     CorrectionRecord, CurrentFact, insert_correction, load_correction, load_current_fact,

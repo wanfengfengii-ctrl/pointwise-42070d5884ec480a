@@ -54,11 +54,11 @@ def insert_frozen_report(db, report, receipt):
     )
     db.executemany(
         '''INSERT INTO report_rows (report_id, position, observation_key, reading, excess,
-                                    batch_id, slot, correction_id)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
+                                    batch_id, slot, correction_id, label_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)''',
         (
             (header.report_id, row.position, row.key, encode_mm(row.reading), encode_mm(row.excess),
-             row.source.batch_id, row.source.slot, row.source.correction_id)
+             row.source.batch_id, row.source.slot, row.source.correction_id, row.source.label_id)
             for row in report.rows
         ),
     )
@@ -69,15 +69,18 @@ def insert_frozen_report(db, report, receipt):
 
 
 def _frozen_row(row):
-    position, key, reading, excess, batch_id, slot, correction_id = row
-    return FrozenReportRow(position, key, decode_mm(reading), decode_mm(excess), FactSource(batch_id, slot, correction_id))
+    position, key, reading, excess, batch_id, slot, correction_id, label_id = row
+    return FrozenReportRow(
+        position, key, decode_mm(reading), decode_mm(excess),
+        FactSource(batch_id, slot, correction_id, label_id),
+    )
 
 
 def load_frozen_slice(db, report_id, start, end):
     if start >= end:
         return ()
     result = db.execute(
-        '''SELECT position, observation_key, reading, excess, batch_id, slot, correction_id
+        '''SELECT position, observation_key, reading, excess, batch_id, slot, correction_id, label_id
            FROM report_rows WHERE report_id = ? AND position >= ? AND position < ? ORDER BY position''',
         (report_id, start, end),
     )

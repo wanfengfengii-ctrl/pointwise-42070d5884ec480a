@@ -31,13 +31,15 @@ class CorrectionRecord:
 
 
 def _current_fact(row):
-    station, day, key, reading, batch_id, slot, correction_id = row
-    return CurrentFact(station, day, key, decode_mm(reading), FactSource(batch_id, slot, correction_id))
+    station, day, key, reading, batch_id, slot, correction_id, label_id = row
+    return CurrentFact(
+        station, day, key, decode_mm(reading), FactSource(batch_id, slot, correction_id, label_id)
+    )
 
 
 def load_current_fact(db, station, day, key):
     row = db.execute(
-        '''SELECT station, day, observation_key, reading, batch_id, slot, correction_id
+        '''SELECT station, day, observation_key, reading, batch_id, slot, correction_id, label_id
            FROM current_facts WHERE station = ? AND day = ? AND observation_key = ?''',
         (station, day, key),
     ).fetchone()
@@ -46,7 +48,7 @@ def load_current_fact(db, station, day, key):
 
 def load_day_facts(db, station, day):
     rows = db.execute(
-        '''SELECT station, day, observation_key, reading, batch_id, slot, correction_id
+        '''SELECT station, day, observation_key, reading, batch_id, slot, correction_id, label_id
            FROM current_facts WHERE station = ? AND day = ? ORDER BY rowid''',
         (station, day),
     )
@@ -55,11 +57,12 @@ def load_day_facts(db, station, day):
 
 def insert_current_facts(db, facts):
     db.executemany(
-        '''INSERT INTO current_facts (station, day, observation_key, reading, batch_id, slot, correction_id)
-           VALUES (?, ?, ?, ?, ?, ?, ?)''',
+        '''INSERT INTO current_facts
+               (station, day, observation_key, reading, batch_id, slot, correction_id, label_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
         (
             (fact.station, fact.day, fact.key, encode_mm(fact.reading),
-             fact.source.batch_id, fact.source.slot, fact.source.correction_id)
+             fact.source.batch_id, fact.source.slot, fact.source.correction_id, fact.source.label_id)
             for fact in facts
         ),
     )
@@ -67,10 +70,10 @@ def insert_current_facts(db, facts):
 
 def replace_current_fact(db, fact):
     cursor = db.execute(
-        '''UPDATE current_facts SET reading = ?, batch_id = ?, slot = ?, correction_id = ?
+        '''UPDATE current_facts SET reading = ?, batch_id = ?, slot = ?, correction_id = ?, label_id = ?
            WHERE station = ? AND day = ? AND observation_key = ?''',
         (encode_mm(fact.reading), fact.source.batch_id, fact.source.slot,
-         fact.source.correction_id, fact.station, fact.day, fact.key),
+         fact.source.correction_id, fact.source.label_id, fact.station, fact.day, fact.key),
     )
     if cursor.rowcount != 1:
         raise IntegrityViolation('replacement lost its current fact')
@@ -85,17 +88,27 @@ def remove_current_fact(db, station, day, key):
         raise IntegrityViolation('withdrawal lost its current fact')
 
 
+def relabel_current_fact(db, station, day, old_key, new_key, label_id):
+    cursor = db.execute(
+        '''UPDATE current_facts SET observation_key = ?, label_id = ?
+           WHERE station = ? AND day = ? AND observation_key = ?''',
+        (new_key, label_id, station, day, old_key),
+    )
+    if cursor.rowcount != 1:
+        raise IntegrityViolation('relabel lost its current fact')
+
+
 def load_correction(db, correction_id):
     row = db.execute(
         '''SELECT station, day, observation_key, old_reading, batch_id, slot,
-                  old_correction_id, action, reason, replacement
+                  old_correction_id, old_label_id, action, reason, replacement
            FROM corrections WHERE correction_id = ?''',
         (correction_id,),
     ).fetchone()
     if row is None:
         return None
-    station, day, key, reading, batch_id, slot, previous_id, action, reason, replacement = row
-    source = FactSource(batch_id, slot, previous_id)
+    station, day, key, reading, batch_id, slot, previous_id, label_id, action, reason, replacement = row
+    source = FactSource(batch_id, slot, previous_id, label_id)
     before = CurrentFact(station, day, key, decode_mm(reading), source)
     return CorrectionRecord(correction_id, before, action, reason, decode_mm(replacement))
 
@@ -107,9 +120,9 @@ def insert_correction(db, record):
     # uses the same original slot and binds this correction id.
     db.execute(
         '''INSERT INTO corrections (correction_id, station, day, observation_key,
-                  old_reading, batch_id, slot, old_correction_id, action, reason, replacement)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                  old_reading, batch_id, slot, old_correction_id, old_label_id, action, reason, replacement)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
         (record.correction_id, before.station, before.day, before.key, encode_mm(before.reading),
-         source.batch_id, source.slot, source.correction_id, record.action, record.reason,
+         source.batch_id, source.slot, source.correction_id, source.label_id, record.action, record.reason,
          encode_mm(record.replacement)),
     )
